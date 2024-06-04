@@ -1,0 +1,186 @@
+package com.harshRajpurohit.musicPlayer
+
+import android.annotation.SuppressLint
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
+import android.graphics.BitmapFactory
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.media.audiofx.LoudnessEnhancer
+import android.os.*
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
+
+/*音乐播放服务在后台运行，并负责管理音乐的播放和控制。
+* 管理音乐播放的各种功能，包括创建音乐播放器、处理音频焦点变化、更新通知栏、控制音乐的播放和暂停，以及设置音乐播放进度等功能。*/
+class MusicService: Service(), AudioManager.OnAudioFocusChangeListener { // 用于监听音频焦点的变化。
+    private var myBinder = MyBinder()
+    var mediaPlayer:MediaPlayer? = null
+    private lateinit var mediaSession : MediaSessionCompat
+    private lateinit var runnable: Runnable
+    lateinit var audioManager: AudioManager
+
+    /*在绑定服务时被调用，创建了一个 MediaSessionCompat 对象，并返回 MyBinder 的实例。*/
+    override fun onBind(intent: Intent?): IBinder {
+        mediaSession = MediaSessionCompat(baseContext, "My Music")
+        return myBinder
+    }
+
+    /*用于提供服务的实例。*/
+    inner class MyBinder:Binder(){
+        fun currentService(): MusicService {
+            return this@MusicService
+        }
+    }
+    /*用于显示通知栏，其中包括音乐的标题、艺术家、封面图像和控制按钮（例如播放、上一曲、下一曲）。*/
+    @SuppressLint("UnspecifiedImmutableFlag")
+    fun showNotification(playPauseBtn: Int){
+        val intent = Intent(baseContext, MainActivity::class.java)
+
+        val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+
+        val contentIntent = PendingIntent.getActivity(this, 0, intent, flag)
+
+        val prevIntent = Intent(baseContext, NotificationReceiver::class.java).setAction(ApplicationClass.PREVIOUS)
+        val prevPendingIntent = PendingIntent.getBroadcast(baseContext, 0, prevIntent, flag)
+
+        val playIntent = Intent(baseContext, NotificationReceiver::class.java).setAction(ApplicationClass.PLAY)
+        val playPendingIntent = PendingIntent.getBroadcast(baseContext, 0, playIntent, flag)
+
+        val nextIntent = Intent(baseContext, NotificationReceiver::class.java).setAction(ApplicationClass.NEXT)
+        val nextPendingIntent = PendingIntent.getBroadcast(baseContext, 0, nextIntent, flag)
+
+        val exitIntent = Intent(baseContext, NotificationReceiver::class.java).setAction(ApplicationClass.EXIT)
+        val exitPendingIntent = PendingIntent.getBroadcast(baseContext, 0, exitIntent, flag)
+
+        val imgArt = getImgArt(PlayerActivity.musicListPA[PlayerActivity.songPosition].path)
+        val image = if(imgArt != null){
+            BitmapFactory.decodeByteArray(imgArt, 0, imgArt.size)
+        }else{
+            BitmapFactory.decodeResource(resources, R.drawable.music_player_icon_slash_screen)
+        }
+
+        val notification = androidx.core.app.NotificationCompat.Builder(baseContext, ApplicationClass.CHANNEL_ID)
+            .setContentIntent(contentIntent)
+            .setContentTitle(PlayerActivity.musicListPA[PlayerActivity.songPosition].title)
+            .setContentText(PlayerActivity.musicListPA[PlayerActivity.songPosition].artist)
+            .setSmallIcon(R.drawable.music_icon)
+            .setLargeIcon(image)
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle().setMediaSession(mediaSession.sessionToken))
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .addAction(R.drawable.previous_icon, "Previous", prevPendingIntent)
+            .addAction(playPauseBtn, "Play", playPendingIntent)
+            .addAction(R.drawable.next_icon, "Next", nextPendingIntent)
+            .addAction(R.drawable.exit_icon, "Exit", exitPendingIntent)
+            .build()
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
+            val playbackSpeed = if(PlayerActivity.isPlaying) 1F else 0F
+            mediaSession.setMetadata(MediaMetadataCompat.Builder()
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, mediaPlayer!!.duration.toLong())
+                .build())
+            val playBackState = PlaybackStateCompat.Builder()
+                .setState(PlaybackStateCompat.STATE_PLAYING, mediaPlayer!!.currentPosition.toLong(), playbackSpeed)
+                .setActions(PlaybackStateCompat.ACTION_SEEK_TO)
+                .build()
+            mediaSession.setPlaybackState(playBackState)
+            mediaSession.setCallback(object: MediaSessionCompat.Callback(){
+
+                //called when headphones buttons are pressed
+                //currently only pause or play music on button click
+                override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+                    if(PlayerActivity.isPlaying){
+                        //pause music
+                        PlayerActivity.binding.playPauseBtnPA.setIconResource(R.drawable.play_icon)
+                        NowPlaying.binding.playPauseBtnNP.setIconResource(R.drawable.play_icon)
+                        PlayerActivity.isPlaying = false
+                        mediaPlayer!!.pause()
+                        showNotification(R.drawable.play_icon)
+                    }else{
+                        //play music
+                        PlayerActivity.binding.playPauseBtnPA.setIconResource(R.drawable.pause_icon)
+                        NowPlaying.binding.playPauseBtnNP.setIconResource(R.drawable.pause_icon)
+                        PlayerActivity.isPlaying = true
+                        mediaPlayer!!.start()
+                        showNotification(R.drawable.pause_icon)
+                    }
+                    return super.onMediaButtonEvent(mediaButtonEvent)
+                }
+                override fun onSeekTo(pos: Long) {
+                    super.onSeekTo(pos)
+                    mediaPlayer!!.seekTo(pos.toInt())
+                    val playBackStateNew = PlaybackStateCompat.Builder()
+                        .setState(PlaybackStateCompat.STATE_PLAYING, mediaPlayer!!.currentPosition.toLong(), playbackSpeed)
+                        .setActions(PlaybackStateCompat.ACTION_SEEK_TO)
+                        .build()
+                    mediaSession.setPlaybackState(playBackStateNew)
+                }
+            })
+        }
+
+        startForeground(13, notification)
+    }
+    /*用于创建和准备音乐播放器（MediaPlayer）对象，并设置相关的状态和界面显示。*/
+    fun createMediaPlayer(){
+        try {
+            if (mediaPlayer == null) mediaPlayer = MediaPlayer()
+            mediaPlayer!!.reset()
+            mediaPlayer!!.setDataSource(PlayerActivity.musicListPA[PlayerActivity.songPosition].path)
+            mediaPlayer!!.prepare()
+            PlayerActivity.binding.playPauseBtnPA.setIconResource(R.drawable.pause_icon)
+            showNotification(R.drawable.pause_icon)
+            PlayerActivity.binding.tvSeekBarStart.text = formatDuration(mediaPlayer!!.currentPosition.toLong())
+            PlayerActivity.binding.tvSeekBarEnd.text = formatDuration(mediaPlayer!!.duration.toLong())
+            PlayerActivity.binding.seekBarPA.progress = 0
+            PlayerActivity.binding.seekBarPA.max = mediaPlayer!!.duration
+            PlayerActivity.nowPlayingId = PlayerActivity.musicListPA[PlayerActivity.songPosition].id
+            PlayerActivity.loudnessEnhancer = LoudnessEnhancer(mediaPlayer!!.audioSessionId)
+            PlayerActivity.loudnessEnhancer.enabled = true
+        }catch (e: Exception){return}
+    }
+
+    /*设置音乐播放进度条的更新。*/
+    fun seekBarSetup(){
+        runnable = Runnable {
+            PlayerActivity.binding.tvSeekBarStart.text = formatDuration(mediaPlayer!!.currentPosition.toLong())
+            PlayerActivity.binding.seekBarPA.progress = mediaPlayer!!.currentPosition
+            Handler(Looper.getMainLooper()).postDelayed(runnable, 200)
+        }
+        Handler(Looper.getMainLooper()).postDelayed(runnable, 0)
+    }
+
+    /*在音频焦点发生变化时被调用，根据焦点变化的情况，暂停或播放音乐，并更新通知栏的状态。*/
+    override fun onAudioFocusChange(focusChange: Int) {
+        if(focusChange <= 0){
+            //pause music
+            PlayerActivity.binding.playPauseBtnPA.setIconResource(R.drawable.play_icon)
+            NowPlaying.binding.playPauseBtnNP.setIconResource(R.drawable.play_icon)
+            PlayerActivity.isPlaying = false
+            mediaPlayer!!.pause()
+            showNotification(R.drawable.play_icon)
+
+        }
+//        else{
+//            //play music
+//            PlayerActivity.binding.playPauseBtnPA.setIconResource(R.drawable.pause_icon)
+//            NowPlaying.binding.playPauseBtnNP.setIconResource(R.drawable.pause_icon)
+//            PlayerActivity.isPlaying = true
+//            mediaPlayer!!.start()
+//            showNotification(R.drawable.pause_icon)
+//        }
+    }
+
+    //for making persistent
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
+}
