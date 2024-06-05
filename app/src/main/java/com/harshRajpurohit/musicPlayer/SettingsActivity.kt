@@ -71,6 +71,6 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
     private fun setVersionDetails():String{
-        return "Version Name: ${BuildConfig.VERSION_NAME}"
+        return ""
     }
 }

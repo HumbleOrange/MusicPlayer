@@ -17,7 +17,19 @@ class AboutActivity : AppCompatActivity() {
         binding.aboutText.text = aboutText()
     }
     private fun aboutText(): String{
-        return "Developed By: wgj & xwt" +
-                "\n\nThis is an Android experiment."
+        return "Endless Journey Music Player" +
+                "\n\nVersion Name: ${BuildConfig.VERSION_NAME}"+
+                "\n\nEmail:8210213107@csu.edu.cn"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\n"+
+                "\n\nEndless Journey Music Player 版权所有 " +
+                "\n\nCopyright© 2024 Created by xcb & mcl & zfs"
     }
 }
