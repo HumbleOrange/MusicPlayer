@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -24,6 +25,8 @@ import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.harshRajpurohit.musicPlayer.databinding.ActivityMainBinding
 import java.io.File
+import kotlin.math.log
+
 /*实现了音乐播放器的主界面功能，包括显示音乐列表、搜索音乐、切换主题、排序音乐等操作*/
 class MainActivity : AppCompatActivity() {
     /*声明和初始化一些变量和属性，包括布局绑定对象、导航抽屉的开关、音乐适配器等*/
@@ -202,6 +205,7 @@ class MainActivity : AppCompatActivity() {
         if(cursor != null){
             if(cursor.moveToFirst()){
                 do {
+//                    Log.d("bbb","222222222222222222222211111111111111")
                     val titleC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))?:"Unknown"
                     val idC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media._ID))?:"Unknown"
                     val albumC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))?:"Unknown"

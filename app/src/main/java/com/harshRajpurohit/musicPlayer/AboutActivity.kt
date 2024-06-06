@@ -18,7 +18,7 @@ class AboutActivity : AppCompatActivity() {
     }
     private fun aboutText(): String{
         return "Endless Journey Music Player" +
-                "\n\nVersion Name: ${BuildConfig.VERSION_NAME}"+
+                "\n\nVersion Name: 2.0.1"+
                 "\n\nEmail:8210213107@csu.edu.cn"+
                 "\n\n"+
                 "\n\n"+
