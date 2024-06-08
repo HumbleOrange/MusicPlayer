@@ -193,7 +193,6 @@ class MainActivity : AppCompatActivity() {
     }
     /*获取设备上的所有音频文件*/
     @SuppressLint("Recycle", "Range")
-    @RequiresApi(Build.VERSION_CODES.R)
     private fun getAllAudio(): ArrayList<Music>{
         val tempList = ArrayList<Music>()
         val selection = MediaStore.Audio.Media.IS_MUSIC +  " != 0"
@@ -205,7 +204,6 @@ class MainActivity : AppCompatActivity() {
         if(cursor != null){
             if(cursor.moveToFirst()){
                 do {
-//                    Log.d("bbb","222222222222222222222211111111111111")
                     val titleC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))?:"Unknown"
                     val idC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media._ID))?:"Unknown"
                     val albumC = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))?:"Unknown"
