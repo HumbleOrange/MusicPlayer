@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     companion object{
         lateinit var MusicListMA : ArrayList<Music>
         lateinit var musicListSearch : ArrayList<Music>
+
         var search: Boolean = false
         var themeIndex: Int = 0
         val currentTheme = arrayOf(R.style.coolPink, R.style.coolBlue, R.style.coolPurple, R.style.coolGreen, R.style.coolBlack)
